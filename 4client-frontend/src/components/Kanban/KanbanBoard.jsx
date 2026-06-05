@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ESTADOS, EL, COL_COLORS, pedidos as initialPedidos, tickets as initialTickets } from '../../data/mockData';
 import OrderCard from './OrderCard';
+import TicketModal from '../Modals/TicketModal';
 
 function KanbanBoard({ user }) {
   const [pedidos, setPedidos] = useState(initialPedidos);
   const [tickets, setTickets] = useState(initialTickets);
   const [search, setSearch] = useState('');
   const [payFilter, setPayFilter] = useState('');
+  
+  const [activeTicket, setActiveTicket] = useState(null);
 
   // Setup current date logic for demo
   const [currentDateStr, setCurrentDateStr] = useState('');
@@ -17,7 +20,6 @@ function KanbanBoard({ user }) {
     const today = d.toISOString().split('T')[0];
     setCurrentDateStr(today);
     
-    // Auto-assign dates to mock data
     const pd = [...initialPedidos];
     pd.forEach(p => p.fecha = today);
     setPedidos(pd);
@@ -32,14 +34,10 @@ function KanbanBoard({ user }) {
   };
 
   const visibleTickets = tickets.filter(t => t.fecha === currentDateStr).filter(t => {
-    // text search
     if (search) {
       const q = search.toLowerCase();
-      if (!t.name.toLowerCase().includes(q) && !t.phone.includes(q)) {
-        return false;
-      }
+      if (!t.name.toLowerCase().includes(q) && !t.phone.includes(q)) return false;
     }
-    // pay filter
     if (payFilter) {
       const tPeds = t.pedidoIds.map(id => pedidos.find(p => p.id === id)).filter(p => p && p.estado !== 'papelera');
       if (!tPeds.some(p => p.pago === payFilter)) return false;
@@ -57,7 +55,6 @@ function KanbanBoard({ user }) {
     const pid = e.dataTransfer.getData('pid');
     const sourceTid = e.dataTransfer.getData('tid');
     
-    // Restringir a misma fila
     if (sourceTid !== tid) {
       alert("Solo puedes arrastrar el pedido dentro de la misma fila del cliente.");
       return;
@@ -66,8 +63,8 @@ function KanbanBoard({ user }) {
     const pedIndex = pedidos.findIndex(p => p.id === pid);
     if (pedIndex > -1) {
       const p = pedidos[pedIndex];
-      if (p.pagado || p.cajaCerrada) return; // bloqueado
-      if (p.estado === estado) return; // mismo estado
+      if (p.pagado || p.cajaCerrada) return; 
+      if (p.estado === estado) return; 
       
       const newPedidos = [...pedidos];
       newPedidos[pedIndex] = { ...p, estado: estado };
@@ -111,7 +108,6 @@ function KanbanBoard({ user }) {
       </div>
 
       <div className="slane-wrap">
-        {/* Header row */}
         <div className="slane-row slane-header">
           <div className="slane-hcell">TICKET / CLIENTE</div>
           {ESTADOS.map((e) => (
@@ -119,21 +115,18 @@ function KanbanBoard({ user }) {
           ))}
         </div>
 
-        {/* Rows */}
         {visibleTickets.map(t => {
           const tPeds = t.pedidoIds.map(id => pedidos.find(p => p.id === id)).filter(p => p && p.estado !== 'papelera');
-          if (tPeds.length === 0) return null; // No orders in this ticket
+          if (tPeds.length === 0) return null; 
           
           return (
             <div className="slane-row" key={t.id}>
-              {/* Ticket Info */}
               <div className="slane-ccell">
                 <div className="slane-cli">{t.name}</div>
                 <div className="slane-tel">{t.phone}</div>
-                <button className="slane-tkbtn">Abrir Chat</button>
+                <button className="slane-tkbtn" onClick={() => setActiveTicket(t)}>Abrir Chat</button>
               </div>
 
-              {/* Status Columns */}
               {ESTADOS.map(estado => {
                 const inState = tPeds.filter(p => p.estado === estado);
                 return (
@@ -166,6 +159,8 @@ function KanbanBoard({ user }) {
           </div>
         )}
       </div>
+      
+      <TicketModal ticket={activeTicket} onClose={() => setActiveTicket(null)} />
     </div>
   );
 }

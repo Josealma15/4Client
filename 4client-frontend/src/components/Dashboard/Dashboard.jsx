@@ -1,9 +1,15 @@
 import { useState } from 'react';
 import KanbanBoard from '../Kanban/KanbanBoard';
+import CierreModal from '../Modals/CierreModal';
+import { pedidos as mockPedidos } from '../../data/mockData';
 
 function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('swimlane');
+  const [isCierreOpen, setIsCierreOpen] = useState(false);
 
+  // For demo purposes, we pass mock data to CierreModal directly
+  // In real app, this comes from an API
+  
   return (
     <div id="s-admin" className="scr on">
       <div className="al">
@@ -22,7 +28,12 @@ function Dashboard({ user, onLogout }) {
                 </div>
               </div>
               {user.admin && (
-                <button className="bnew" id="btn-cierre" style={{ background: 'var(--az)', padding: '8px 14px', fontSize: '13px' }}>
+                <button 
+                  className="bnew" 
+                  id="btn-cierre" 
+                  style={{ background: 'var(--az)', padding: '8px 14px', fontSize: '13px' }}
+                  onClick={() => setIsCierreOpen(true)}
+                >
                   🏦 Cierre de caja
                 </button>
               )}
@@ -53,6 +64,15 @@ function Dashboard({ user, onLogout }) {
           )}
         </div>
       </div>
+      
+      {isCierreOpen && (
+        <CierreModal 
+          pedidos={mockPedidos} 
+          currentDateStr={new Date().toISOString().split('T')[0]} 
+          onClose={() => setIsCierreOpen(false)} 
+          onCierreComplete={() => setIsCierreOpen(false)} 
+        />
+      )}
     </div>
   );
 }
