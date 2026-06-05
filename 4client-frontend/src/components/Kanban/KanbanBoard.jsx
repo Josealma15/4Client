@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ESTADOS, EL, COL_COLORS, pedidos as initialPedidos, tickets as initialTickets } from '../../data/mockData';
 import OrderCard from './OrderCard';
 import TicketModal from '../Modals/TicketModal';
@@ -82,7 +82,7 @@ function KanbanBoard({ user }) {
   };
 
   return (
-    <div>
+    <>
       <div className="khead">
         <div>
           <div className="ktit">Tickets & Pedidos de despacho</div>
@@ -107,52 +107,57 @@ function KanbanBoard({ user }) {
         </div>
       </div>
 
-      <div className="slane-wrap">
-        <div className="slane-row slane-header">
-          <div className="slane-hcell">TICKET / CLIENTE</div>
+      <div className="slane-wrap" id="swimlane">
+        <div className="slane">
+          {/* Header row equivalent */}
+          <div className="slane-hcell wpp-col">💬 Tickets WPP</div>
           {ESTADOS.map((e) => (
             <div key={e} className="slane-hcell" style={{ borderTop: `3px solid ${COL_COLORS[e]}` }}>{EL[e]}</div>
           ))}
+
+          {/* Rows equivalent */}
+          {visibleTickets.map(t => {
+            const tPeds = t.pedidoIds.map(id => pedidos.find(p => p.id === id)).filter(p => p && p.estado !== 'papelera');
+            if (tPeds.length === 0) return null; 
+            
+            return (
+              <React.Fragment key={t.id}>
+                {/* Ticket Info Cell */}
+                <div className="slane-tcell" onClick={() => setActiveTicket(t)}>
+                  <div style={{fontWeight: 800, color: 'var(--vd)', fontSize: '14px', marginBottom: '4px'}}>{t.name}</div>
+                  <div style={{fontSize: '12px', color: 'var(--gt)', marginBottom: '8px'}}>{t.phone}</div>
+                  <div style={{fontSize: '11px', fontWeight: 600, color: 'var(--v)'}}>Abrir chat ›</div>
+                </div>
+
+                {/* Status Column Cells */}
+                {ESTADOS.map(estado => {
+                  const inState = tPeds.filter(p => p.estado === estado);
+                  return (
+                    <div 
+                      key={estado} 
+                      className="slane-scell" 
+                      style={{ alignItems: 'flex-start', justifyContent: 'flex-start', flexDirection: 'column', gap: '7px', display: 'flex' }}
+                      onDragOver={onDragOver}
+                      onDragLeave={onDragLeave}
+                      onDrop={(e) => { onDragLeave(e); onDrop(e, t.id, estado); }}
+                    >
+                      {inState.map(ped => (
+                        <OrderCard 
+                          key={ped.id} 
+                          pedido={ped} 
+                          ticket={t} 
+                          color={COL_COLORS[estado]} 
+                          onDragStart={onDragStart} 
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
         </div>
-
-        {visibleTickets.map(t => {
-          const tPeds = t.pedidoIds.map(id => pedidos.find(p => p.id === id)).filter(p => p && p.estado !== 'papelera');
-          if (tPeds.length === 0) return null; 
-          
-          return (
-            <div className="slane-row" key={t.id}>
-              <div className="slane-ccell">
-                <div className="slane-cli">{t.name}</div>
-                <div className="slane-tel">{t.phone}</div>
-                <button className="slane-tkbtn" onClick={() => setActiveTicket(t)}>Abrir Chat</button>
-              </div>
-
-              {ESTADOS.map(estado => {
-                const inState = tPeds.filter(p => p.estado === estado);
-                return (
-                  <div 
-                    key={estado} 
-                    className="slane-scell" 
-                    style={{ alignItems: 'flex-start', justifyContent: 'flex-start', flexDirection: 'column', gap: '7px', display: 'flex' }}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onDrop={(e) => { onDragLeave(e); onDrop(e, t.id, estado); }}
-                  >
-                    {inState.map(ped => (
-                      <OrderCard 
-                        key={ped.id} 
-                        pedido={ped} 
-                        ticket={t} 
-                        color={COL_COLORS[estado]} 
-                        onDragStart={onDragStart} 
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+        
         {visibleTickets.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--gt)', fontSize: '15px' }}>
             No hay tickets con esta combinación.
@@ -161,7 +166,7 @@ function KanbanBoard({ user }) {
       </div>
       
       <TicketModal ticket={activeTicket} onClose={() => setActiveTicket(null)} />
-    </div>
+    </>
   );
 }
 
