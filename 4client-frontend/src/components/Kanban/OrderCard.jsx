@@ -1,6 +1,6 @@
 import React from 'react';
 
-function OrderCard({ pedido, ticket, color, onDragStart, onViewDetail }) {
+function OrderCard({ pedido, ticket, color, onDragStart, onViewDetail, onMove }) {
   const tot = pedido.items.reduce((s, i) => s + (parseInt(i.p) || 0), 0);
   const locked = pedido.pagado === true || pedido.cajaCerrada === true;
   
@@ -37,9 +37,9 @@ function OrderCard({ pedido, ticket, color, onDragStart, onViewDetail }) {
         {tot > 0 && <div className="dc-tot">${tot.toLocaleString('es-CO')}</div>}
         
         <div className="dc-nav">
-          <button className="dc-btn" title="Retroceder" disabled={locked}>‹</button>
+          <button className="dc-btn" title="Retroceder" disabled={locked} onClick={() => onMove && onMove(pedido.id, -1)}>‹</button>
           <button className="dc-det-btn" onClick={() => onViewDetail && onViewDetail(pedido)}>Ver detalle</button>
-          <button className="dc-btn" title="Avanzar" disabled={locked}>›</button>
+          <button className="dc-btn" title="Avanzar" disabled={locked} onClick={() => onMove && onMove(pedido.id, 1)}>›</button>
         </div>
       </div>
     </div>

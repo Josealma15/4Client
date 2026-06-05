@@ -1,7 +1,7 @@
 import React from 'react';
 import { EL, pedidos as allPedidos } from '../../data/mockData';
 
-function TicketModal({ ticket, onClose }) {
+function TicketModal({ ticket, onClose, onCreateOrder }) {
   if (!ticket) return null;
 
   return (
@@ -58,7 +58,7 @@ function TicketModal({ ticket, onClose }) {
           
           <div className="mactions" id="tk-actions">
             <button className="bsec" onClick={onClose}>Cerrar vista</button>
-            <button className="bpri" onClick={() => alert('Abrir modal de nuevo pedido (Próximamente)')}>
+            <button className="bpri" onClick={() => onCreateOrder && onCreateOrder(ticket)}>
               ➕ Crear pedido de este chat
             </button>
           </div>

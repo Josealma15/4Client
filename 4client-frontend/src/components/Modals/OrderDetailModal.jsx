@@ -1,7 +1,7 @@
 import React from 'react';
 import { EL } from '../../data/mockData';
 
-function OrderDetailModal({ pedido, onClose }) {
+function OrderDetailModal({ pedido, ticket, onClose, onMove }) {
   if (!pedido) return null;
 
   const total = pedido.items.reduce((s, i) => s + (parseInt(i.p) || 0), 0);
@@ -18,10 +18,36 @@ function OrderDetailModal({ pedido, onClose }) {
           <button className="mclose" onClick={onClose}>×</button>
         </div>
         <div className="mbody">
+          {ticket && (
+            <div id="det-top-banner">
+              <div style={{ background: '#ECE5DD', borderRadius: '10px', padding: '10px', marginBottom: '16px', maxHeight: '150px', overflowY: 'auto', border: '2px solid var(--v)' }}>
+                <div style={{ fontSize: '11px', color: '#667781', marginBottom: '6px', fontWeight: 'bold' }}>💬 Conversación de WhatsApp</div>
+                {ticket.msgs.slice(-5).map((m, i) => (
+                  <div key={i} className={`chat-msg ${m.from === 'c' ? 'them' : 'us'}`} style={{ marginBottom: '5px', maxWidth: '95%' }}>
+                    <div className="chat-bubble" style={{ padding: '6px 10px', fontSize: '12px', display: 'inline-block' }}>{m.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ background: 'var(--vc)', borderRadius: 'var(--rad)', padding: '12px 16px', marginBottom: '16px' }} id="det-info">
             <strong>{pedido.cli}</strong><br />
             {pedido.tel} <br />
             {pedido.dir}
+          </div>
+          
+          <div className="stit">Mover pedido</div>
+          <div className="movbtns" id="det-mover" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {['nuevo', 'preparando', 'listo', 'camino', 'entregado'].map(e => (
+              <button 
+                key={e} 
+                className={`mbtn ${pedido.estado === e ? 'cur' : ''}`}
+                style={pedido.estado === e ? { background: 'var(--v)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '20px', cursor: 'default' } : { background: 'var(--b)', border: '1px solid var(--brd)', padding: '6px 12px', borderRadius: '20px', cursor: 'pointer' }}
+                onClick={() => onMove && onMove(pedido.id, e)}
+              >
+                {EL[e]}
+              </button>
+            ))}
           </div>
           
           <div className="stit">Información del pedido</div>

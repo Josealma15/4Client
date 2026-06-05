@@ -55,7 +55,7 @@ function Dashboard({ user, onLogout }) {
         <div className="ac">
           {activeTab === 'swimlane' && (
             <div id="adm-swimlane">
-              <KanbanBoard user={user} />
+              <KanbanBoard user={user} onOpenNewOrder={setIsNewOrderOpen} />
             </div>
           )}
           
@@ -74,8 +74,8 @@ function Dashboard({ user, onLogout }) {
         />
       )}
 
-      {isNewOrderOpen && (
-        <NewOrderModal onClose={() => setIsNewOrderOpen(false)} />
+      {isNewOrderOpen !== false && (
+        <NewOrderModal ticket={isNewOrderOpen !== true ? isNewOrderOpen : null} onClose={() => setIsNewOrderOpen(false)} />
       )}
     </div>
   );

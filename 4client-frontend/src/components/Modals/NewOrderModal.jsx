@@ -1,15 +1,28 @@
 import React from 'react';
 
-function NewOrderModal({ onClose }) {
+function NewOrderModal({ ticket, onClose }) {
   return (
     <div className="moverlay on" id="m-nuevo">
       <div className="mwin" style={{ maxWidth: '900px', width: '95%' }}>
         <div className="mhead">
-          <div className="mtit">Registrar nuevo pedido</div>
+          <div className="mtit">Registrar nuevo pedido {ticket ? `· ${ticket.name}` : ''}</div>
           <button className="mclose" onClick={onClose}>×</button>
         </div>
         <div className="mbody" style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-start' }}>
           
+          {ticket && (
+            <div id="np-chat-wrap" style={{ flex: '1', minWidth: '280px' }}>
+              <div id="np-chat-preview" style={{ background: '#ECE5DD', borderRadius: '10px', padding: '10px', maxHeight: '600px', overflowY: 'auto', border: '2px solid var(--v)' }}>
+                <div style={{ fontSize: '11px', color: '#667781', marginBottom: '6px', fontWeight: 'bold', textAlign: 'center' }}>💬 Conversación de WhatsApp</div>
+                {ticket.msgs.map((m, i) => (
+                  <div key={i} className={`chat-msg ${m.from === 'c' ? 'them' : 'us'}`} style={{ marginBottom: '5px', maxWidth: '95%' }}>
+                    <div className="chat-bubble" style={{ padding: '6px 10px', fontSize: '12px', display: 'inline-block' }}>{m.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ flex: '2', minWidth: '320px' }}>
             <div className="frow">
               <div className="fg2">
@@ -29,11 +42,11 @@ function NewOrderModal({ onClose }) {
             <div className="frow">
               <div className="fg2">
                 <label className="fl2">Nombre del cliente *</label>
-                <input className="fi2" id="np-nom" placeholder="Ej: María González" />
+                <input className="fi2" id="np-nom" placeholder="Ej: María González" defaultValue={ticket ? ticket.name : ''} />
               </div>
               <div className="fg2">
                 <label className="fl2">Teléfono</label>
-                <input className="fi2" id="np-tel" placeholder="Ej: 3001234567" />
+                <input className="fi2" id="np-tel" placeholder="Ej: 3001234567" defaultValue={ticket ? ticket.phone : ''} />
               </div>
             </div>
             

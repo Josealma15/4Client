@@ -4,7 +4,7 @@ import OrderCard from './OrderCard';
 import TicketModal from '../Modals/TicketModal';
 import OrderDetailModal from '../Modals/OrderDetailModal';
 
-function KanbanBoard({ user }) {
+function KanbanBoard({ user, onOpenNewOrder }) {
   const [pedidos, setPedidos] = useState(initialPedidos);
   const [tickets, setTickets] = useState(initialTickets);
   const [search, setSearch] = useState('');
@@ -71,6 +71,33 @@ function KanbanBoard({ user }) {
       const newPedidos = [...pedidos];
       newPedidos[pedIndex] = { ...p, estado: estado };
       setPedidos(newPedidos);
+    }
+  };
+
+  const movePedido = (pid, direction) => {
+    const pedIndex = pedidos.findIndex(p => p.id === pid);
+    if (pedIndex > -1) {
+      const p = pedidos[pedIndex];
+      if (p.pagado || p.cajaCerrada) return;
+      const currentIdx = ESTADOS.indexOf(p.estado);
+      const newIdx = currentIdx + direction;
+      if (newIdx >= 0 && newIdx < ESTADOS.length) {
+        const newPedidos = [...pedidos];
+        newPedidos[pedIndex] = { ...p, estado: ESTADOS[newIdx] };
+        setPedidos(newPedidos);
+      }
+    }
+  };
+
+  const movePedidoToState = (pid, estado) => {
+    const pedIndex = pedidos.findIndex(p => p.id === pid);
+    if (pedIndex > -1) {
+      const p = pedidos[pedIndex];
+      if (p.pagado || p.cajaCerrada) return;
+      const newPedidos = [...pedidos];
+      newPedidos[pedIndex] = { ...p, estado: estado };
+      setPedidos(newPedidos);
+      setActivePedido(newPedidos[pedIndex]); // update modal
     }
   };
 
@@ -151,6 +178,7 @@ function KanbanBoard({ user }) {
                           color={COL_COLORS[estado]} 
                           onDragStart={onDragStart} 
                           onViewDetail={setActivePedido}
+                          onMove={movePedido}
                         />
                       ))}
                     </div>
@@ -168,8 +196,13 @@ function KanbanBoard({ user }) {
         )}
       </div>
       
-      <TicketModal ticket={activeTicket} onClose={() => setActiveTicket(null)} />
-      <OrderDetailModal pedido={activePedido} onClose={() => setActivePedido(null)} />
+      <TicketModal ticket={activeTicket} onClose={() => setActiveTicket(null)} onCreateOrder={(t) => { setActiveTicket(null); onOpenNewOrder(t); }} />
+      <OrderDetailModal 
+        pedido={activePedido} 
+        ticket={activePedido ? tickets.find(t => t.pedidoIds.includes(activePedido.id)) : null}
+        onClose={() => setActivePedido(null)} 
+        onMove={movePedidoToState}
+      />
     </>
   );
 }
