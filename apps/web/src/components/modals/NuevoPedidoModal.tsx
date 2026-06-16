@@ -30,16 +30,17 @@ export default function NuevoPedidoModal({ fecha, onClose }: Props) {
     try {
       await createOrder.mutateAsync({
         fecha,
-        canal,
+        channel: canal,
         payment_method: pago,
         customer_name: nombre.trim(),
-        phone: telefono.trim() || undefined,
+        customer_phone: telefono.trim() || undefined,
         address: direccion.trim(),
         employee_id: empleadoId || undefined,
-        items: items.map((i: any) => ({
-          product_id: i.productId,
-          quantity_label: i.quantity_label,
+        items: items.map((i: any, idx: number) => ({
+          product_name: i.product_name,
+          quantity_label: i.quantity_label || '',
           price: parseFloat(i.price) || 0,
+          sort_order: idx,
         })),
       });
       toast('Pedido registrado');

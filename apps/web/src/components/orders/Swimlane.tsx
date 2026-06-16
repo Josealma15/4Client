@@ -15,7 +15,7 @@ interface Order {
   id: string; num: string; customer_name: string; status: string;
   paid: boolean; locked: boolean; payment_method: string;
   address: string; employee?: { name: string };
-  items: { name?: string; quantity_label?: string; price: number }[];
+  items: { product_name?: string; quantity_label?: string; price: number }[];
   ticket_id?: string;
 }
 
@@ -128,7 +128,7 @@ export default function Swimlane({ tickets, orders, search, onOpenTicket }: Prop
                         <div className="dc-card" style={{ borderLeftColor: COL_COLORS[s] }}>
                           <div className="dc-num">#{ord.num}</div>
                           <div className="dc-prod">
-                            {ord.items.slice(0, 2).map((i) => `${i.name ?? ''} ${i.quantity_label ?? ''}`.trim()).join(', ')}
+                            {ord.items.slice(0, 2).map((i) => `${i.product_name ?? ''} ${i.quantity_label ?? ''}`.trim()).join(', ')}
                             {ord.items.length > 2 && ` +${ord.items.length - 2} más`}
                           </div>
                           <div className="dc-tot">
@@ -170,7 +170,7 @@ export default function Swimlane({ tickets, orders, search, onOpenTicket }: Prop
                       <div className="dc-card" style={{ borderLeftColor: COL_COLORS[s] }}>
                         <div className="dc-num">#{ord.num}</div>
                         <div className="dc-prod">
-                          {ord.items.slice(0, 2).map((i) => `${i.name ?? ''} ${i.quantity_label ?? ''}`.trim()).join(', ')}
+                          {ord.items.slice(0, 2).map((i) => `${i.product_name ?? ''} ${i.quantity_label ?? ''}`.trim()).join(', ')}
                         </div>
                         <div className="dc-tot">
                           {fmtCOP(ord.items.reduce((sum, i) => sum + Number(i.price), 0))}

@@ -46,8 +46,7 @@ export default function DetallePedidoModal({ orderId, onClose }: Props) {
     setPago(order.payment_method ?? 'cod');
     setEmpleadoId(order.employee_id ?? '');
     setItems((order.items ?? []).map((i: any) => ({
-      productId: i.product_id,
-      name: i.product?.name ?? i.name ?? '',
+      product_name: i.product_name ?? '',
       quantity_label: i.quantity_label ?? '',
       price: String(i.price ?? ''),
     })));
@@ -58,7 +57,7 @@ export default function DetallePedidoModal({ orderId, onClose }: Props) {
     mutationFn: () => api.patch(`/orders/${orderId}`, {
       customer_name: nombre, phone: telefono, address: direccion,
       payment_method: pago, employee_id: empleadoId || null,
-      items: items.map((i) => ({ product_id: i.productId, quantity_label: i.quantity_label, price: parseFloat(i.price) || 0 })),
+      items: items.map((i, idx) => ({ product_name: i.product_name, quantity_label: i.quantity_label, price: parseFloat(i.price) || 0, sort_order: idx })),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); qc.invalidateQueries({ queryKey: ['order', orderId] }); toast('Cambios guardados'); setDirty(false); },
     onError: (e: any) => toast(e.message, true),

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
 interface Product { id: string; name: string; category: string; }
-interface Item { productId: string; name: string; quantity_label: string; price: string; }
+interface Item { product_name: string; quantity_label: string; price: string; }
 
 interface Props {
   products: Product[];
@@ -28,8 +28,8 @@ export default function ProductSearch({ products, items, locked, onChange }: Pro
   }, []);
 
   function addProduct(p: Product) {
-    if (items.find((i) => i.productId === p.id)) return;
-    onChange([...items, { productId: p.id, name: p.name, quantity_label: '', price: '' }]);
+    if (items.find((i) => i.product_name === p.name)) return;
+    onChange([...items, { product_name: p.name, quantity_label: '', price: '' }]);
     setSearch('');
     setOpen(false);
   }
@@ -83,8 +83,8 @@ export default function ProductSearch({ products, items, locked, onChange }: Pro
           </div>
         )}
         {items.map((item, idx) => (
-          <div key={item.productId} className={`irow${locked ? ' locked-row' : ''}`}>
-            <div className="iname">{item.name}</div>
+          <div key={item.product_name} className={`irow${locked ? ' locked-row' : ''}`}>
+            <div className="iname">{item.product_name}</div>
             <input className="iinput" placeholder="Ej: 2 kg" disabled={locked}
               value={item.quantity_label}
               onChange={(e) => updateItem(idx, 'quantity_label', e.target.value)} />
@@ -100,8 +100,8 @@ export default function ProductSearch({ products, items, locked, onChange }: Pro
 
       <div className="factbox">
         {items.map((i) => (
-          <div key={i.productId} className="factrow">
-            <span>{i.name} {i.quantity_label && `(${i.quantity_label})`}</span>
+          <div key={i.product_name} className="factrow">
+            <span>{i.product_name} {i.quantity_label && `(${i.quantity_label})`}</span>
             <span>${(parseFloat(i.price) || 0).toLocaleString('es-CO')}</span>
           </div>
         ))}
