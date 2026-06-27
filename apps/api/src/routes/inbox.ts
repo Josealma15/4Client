@@ -52,8 +52,8 @@ export default async function inboxRoutes(fastify: FastifyInstance) {
     return reply.send({ data: ticket });
   });
 
-  // POST /api/v1/inbox/:ticketId/reply — responder desde 4Client, solo admin
-  fastify.post('/:ticketId/reply', { preHandler: [authenticate, requireRole('admin')] }, async (req, reply) => {
+  // POST /api/v1/inbox/:ticketId/reply — responder desde 4Client, todos los roles
+  fastify.post('/:ticketId/reply', { preHandler: [authenticate] }, async (req, reply) => {
     const { ticketId } = req.params as { ticketId: string };
     const body = z.object({ text: z.string().min(1) }).safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: 'Mensaje requerido', code: 'VALIDATION_ERROR' });

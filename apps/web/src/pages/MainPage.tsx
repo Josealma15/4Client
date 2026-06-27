@@ -66,17 +66,30 @@ export default function MainPage() {
     });
     socket.on('order:moved', () => qc.invalidateQueries({ queryKey: ['orders', fecha] }));
     socket.on('order:paid', () => qc.invalidateQueries({ queryKey: ['orders', fecha] }));
-    socket.on('ticket:message', () => {
+    const onTicketMessage = (data: { ticketId: string }) => {
       qc.invalidateQueries({ queryKey: ['tickets', fecha] });
       qc.invalidateQueries({ queryKey: ['inbox'] });
-    });
+      // Refresh any open conversation (TicketModal, DetallePedidoModal chat, InboxPanel)
+      if (data?.ticketId) {
+        qc.invalidateQueries({ queryKey: ['inbox-convo', data.ticketId] });
+        qc.invalidateQueries({ queryKey: ['ticket', data.ticketId] });
+      }
+    };
+    const onTicketUnread = () => {
+      qc.invalidateQueries({ queryKey: ['tickets', fecha] });
+      qc.invalidateQueries({ queryKey: ['inbox'] });
+    };
+
+    socket.on('ticket:message', onTicketMessage);
+    socket.on('ticket:unread', onTicketUnread);
 
     return () => {
       socket.off('order:created');
       socket.off('order:updated');
       socket.off('order:moved');
       socket.off('order:paid');
-      socket.off('ticket:message');
+      socket.off('ticket:message', onTicketMessage);
+      socket.off('ticket:unread', onTicketUnread);
     };
   }, [accessToken, fecha]);
 

@@ -160,7 +160,6 @@ export default function Swimlane({ tickets, orders, search, paymentFilter, onOpe
     return acc;
   }, {} as Record<string, Order[]>);
 
-  const ticketOrderIds = new Set(tickets.flatMap((t) => t.orders.map((o) => o.id)));
 
   const urgTickets = filteredTickets.filter((t) => {
     const tOrds = filteredOrders.filter((o) => t.orders.some((to) => to.id === o.id));
@@ -383,23 +382,6 @@ export default function Swimlane({ tickets, orders, search, paymentFilter, onOpe
             </div>
           )}
 
-          {filteredOrders.filter((o) => !ticketOrderIds.has(o.id)).map((ord) => (
-            <div key={ord.id} style={{ display: 'contents' }}>
-              <div className="slane-tcell" style={{ cursor: 'default', opacity: 0.6 }}>
-                <div className="tk-phone">Sin WPP</div>
-                <div className="tk-name">{ord.customer_name}</div>
-                <div className="tk-foot"><span className="tk-badge sin">Manual</span></div>
-              </div>
-              {STATUS_ORDER.map((s) => (
-                <div key={s} className="slane-scell"
-                  style={{ background: COL_BG[s] }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => handleDrop(e, s, null)}>
-                  {ord.status === s && renderCard(ord, null)}
-                </div>
-              ))}
-            </div>
-          ))}
         </div>
       </div>
 

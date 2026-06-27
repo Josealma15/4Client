@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useEffect, useState } from 'react';
 import { Lock, Check, SendHorizontal, ArrowRight } from 'lucide-react';
 import { api } from '../../lib/api';
+import { useAuthStore } from '../../store/auth';
+import { getSocket } from '../../lib/socket';
 import { fmtCOP, STATUS_LABEL } from '../../lib/format';
 import { toast } from '../ui/Toast';
 
@@ -14,19 +16,34 @@ interface Props {
 
 export default function TicketModal({ ticketId, onClose, onCreateFromTicket, onOpenOrder }: Props) {
   const qc = useQueryClient();
+  const accessToken = useAuthStore((s) => s.accessToken);
   const [reply, setReply] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
 
   const { data: ticket, isLoading } = useQuery({
     queryKey: ['ticket', ticketId],
     queryFn: () => api.get<{ data: any }>(`/inbox/${ticketId}/messages`).then((r) => r.data),
+    refetchInterval: 30000,
   });
+
+  // Real-time: refresh messages when a new message arrives for this ticket
+  useEffect(() => {
+    if (!accessToken) return;
+    const sock = getSocket(accessToken);
+    const onMsg = (data: { ticketId: string }) => {
+      if (data?.ticketId === ticketId) {
+        qc.invalidateQueries({ queryKey: ['ticket', ticketId] });
+      }
+    };
+    sock.on('ticket:message', onMsg);
+    return () => { sock.off('ticket:message', onMsg); };
+  }, [accessToken, ticketId, qc]);
 
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-  }, [ticket?.messages]);
+  }, [ticket?.messages?.length]);
 
   const sendMut = useMutation({
     mutationFn: () => api.post(`/inbox/${ticketId}/reply`, { text: reply }),
@@ -56,10 +73,6 @@ export default function TicketModal({ ticketId, onClose, onCreateFromTicket, onO
           <button className="mclose" onClick={onClose}>×</button>
         </div>
         <div className="mbody">
-          <div style={{ background: 'var(--bg)', borderRadius: 'var(--rad)', padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--gt)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Lock size={12} /> Registro inmutable de la conversación de WhatsApp.
-          </div>
-
           <div className="chat-outer" ref={chatRef}>
             <div className="chat-sep">Hoy</div>
             {(ticket?.messages ?? []).map((msg: any, i: number) => (
@@ -111,7 +124,7 @@ export default function TicketModal({ ticketId, onClose, onCreateFromTicket, onO
           <div className="mactions">
             <button className="bsec" onClick={onClose}>Cerrar</button>
             <div style={{ flex: 2, display: 'flex', gap: 8 }}>
-              <input className="fi2" style={{ flex: 1 }} placeholder="Responder... (Fase 1C: Meta API)"
+              <input className="fi2" style={{ flex: 1 }} placeholder="Escribe un mensaje..."
                 value={reply} onChange={(e) => setReply(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !sendMut.isPending && reply.trim() && sendMut.mutate()} />
               <button className="bpri"
