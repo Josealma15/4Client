@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import * as Sentry from '@sentry/node';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -20,7 +21,22 @@ import userRoutes from './routes/users.js';
 import { authenticate } from './middleware/auth.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
+if (config.SENTRY_DSN) {
+  Sentry.init({
+    dsn: config.SENTRY_DSN,
+    environment: config.NODE_ENV,
+    tracesSampleRate: 0.2,
+  });
+}
+
 const fastify = Fastify({ logger: config.NODE_ENV === 'development' });
+
+fastify.setErrorHandler((error, _req, reply) => {
+  if (config.SENTRY_DSN) Sentry.captureException(error);
+  fastify.log.error(error);
+  const status = error.statusCode ?? 500;
+  reply.status(status).send({ error: error.message ?? 'Error interno', code: 'SERVER_ERROR' });
+});
 
 async function start() {
   const allowedOrigins = config.FRONTEND_URL.split(',').map((o) => o.trim());
