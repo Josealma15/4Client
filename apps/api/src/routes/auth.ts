@@ -10,8 +10,8 @@ const loginSchema = z.object({
 });
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  // POST /api/v1/auth/login
-  fastify.post('/login', async (req, reply) => {
+  // POST /api/v1/auth/login — rate limited to 10 attempts/min per IP
+  fastify.post('/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req, reply) => {
     const body = loginSchema.safeParse(req.body);
     if (!body.success) {
       return reply.status(400).send({ error: 'Datos inválidos', code: 'VALIDATION_ERROR' });
