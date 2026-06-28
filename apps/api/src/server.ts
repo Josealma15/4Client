@@ -18,6 +18,7 @@ import cierreRoutes from './routes/cierre.js';
 import fileRoutes from './routes/files.js';
 import webhookRoutes from './routes/webhook.js';
 import userRoutes from './routes/users.js';
+import configRoutes from './routes/config.js';
 import { authenticate } from './middleware/auth.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
@@ -32,9 +33,7 @@ if (config.SENTRY_DSN) {
 const fastify = Fastify({
   logger: {
     level: config.NODE_ENV === 'production' ? 'warn' : 'info',
-    transport: config.NODE_ENV === 'development'
-      ? { target: 'pino-pretty' }
-      : undefined,
+    transport: config.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
   },
 });
 
@@ -79,6 +78,7 @@ async function start() {
   await fastify.register(fileRoutes,     { prefix: '/api/v1/files' });
   await fastify.register(webhookRoutes,  { prefix: '/api/v1/webhook' });
   await fastify.register(userRoutes,     { prefix: '/api/v1/users' });
+  await fastify.register(configRoutes,   { prefix: '/api/v1/config' });
 
   // Health check
   fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
