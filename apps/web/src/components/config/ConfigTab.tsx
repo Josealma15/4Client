@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, RotateCcw, X, Check, Package, Truck, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, RotateCcw, X, Check, Package, Truck, Users, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { toast } from '../ui/Toast';
 
@@ -12,17 +12,51 @@ const ROLE_LABEL: Record<string, string> = {
   domiciliario: 'Domiciliario',
 };
 
+// ─── Simple confirmation dialog ───────────────────────────────────────────────
+
+function ConfirmDialog({ message, onConfirm, onCancel }: { message: string; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--b)', borderRadius: 'var(--rad)', padding: 28, maxWidth: 400, width: '100%', boxShadow: 'var(--shf)' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20 }}>
+          <AlertTriangle size={22} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 15, lineHeight: 1.5, color: 'var(--n)' }}>{message}</p>
+        </div>
+        <div style={{ display: 'flex', gap: 9 }}>
+          <button className="bdel" style={{ flex: 1 }} onClick={onConfirm}>Confirmar</button>
+          <button className="bsec" style={{ flex: 1 }} onClick={onCancel}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Products ────────────────────────────────────────────────────────────────
+
+interface ProductForm {
+  name: string;
+  category: string;
+  newCategory: string;
+  useNewCategory: boolean;
+}
 
 function ProductsSection() {
   const qc = useQueryClient();
-  const [form, setForm] = useState<{ name: string; category: string; price_per_unit: string } | null>(null);
+  const [form, setForm] = useState<ProductForm | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => api.get<{ data: any[] }>('/products').then((r) => r.data),
+    staleTime: 0,
   });
+
+  // Derive unique categories from existing products
+  const existingCategories: string[] = Array.from(
+    new Set((products as any[]).map((p: any) => p.category).filter(Boolean))
+  ).sort() as string[];
 
   const save = useMutation({
     mutationFn: (body: any) =>
@@ -42,32 +76,48 @@ function ProductsSection() {
     mutationFn: (id: string) => api.delete(`/products/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] });
+      setConfirmDelete(null);
       toast('Producto desactivado');
     },
-    onError: (e: any) => toast(e.message, true),
+    onError: (e: any) => { setConfirmDelete(null); toast(e.message, true); },
   });
 
   function openCreate() {
     setEditId(null);
-    setForm({ name: '', category: '', price_per_unit: '' });
+    setForm({ name: '', category: existingCategories[0] ?? '', newCategory: '', useNewCategory: existingCategories.length === 0 });
   }
 
   function openEdit(p: any) {
     setEditId(p.id);
-    setForm({ name: p.name, category: p.category ?? '', price_per_unit: p.price_per_unit ?? '' });
+    const catExists = existingCategories.includes(p.category ?? '');
+    setForm({
+      name: p.name,
+      category: catExists ? (p.category ?? '') : '',
+      newCategory: catExists ? '' : (p.category ?? ''),
+      useNewCategory: !catExists && !!p.category,
+    });
+  }
+
+  function resolvedCategory(f: ProductForm): string {
+    return f.useNewCategory ? f.newCategory.trim() : f.category;
   }
 
   function handleSubmit() {
     if (!form?.name.trim()) return toast('El nombre es obligatorio', true);
-    save.mutate({
-      name: form.name.trim(),
-      category: form.category.trim() || undefined,
-      price_per_unit: form.price_per_unit ? Number(form.price_per_unit) : undefined,
+    const category = resolvedCategory(form);
+    save.mutate({ name: form.name.trim(), category: category || undefined });
+  }
+
+  function toggleCat(cat: string) {
+    setCollapsedCats(prev => {
+      const next = new Set(prev);
+      next.has(cat) ? next.delete(cat) : next.add(cat);
+      return next;
     });
   }
 
   // Group by category
-  const grouped = products.reduce((acc: Record<string, any[]>, p: any) => {
+  const grouped = (products as any[]).reduce((acc: Record<string, any[]>, p: any) => {
     const cat = p.category || 'Sin categoría';
     acc[cat] = [...(acc[cat] ?? []), p];
     return acc;
@@ -75,8 +125,16 @@ function ProductsSection() {
 
   return (
     <div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`¿Desactivar "${confirmDelete.name}"? El producto dejará de aparecer para nuevos pedidos. Los pedidos existentes que lo contienen no se ven afectados porque el nombre ya está guardado en cada pedido.`}
+          onConfirm={() => del.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <span style={{ fontSize: 13, color: 'var(--gt)' }}>{products.length} productos activos</span>
+        <span style={{ fontSize: 13, color: 'var(--gt)' }}>{(products as any[]).length} productos activos</span>
         <button className="bnew" onClick={openCreate}><Plus size={14} /> Nuevo producto</button>
       </div>
 
@@ -85,53 +143,93 @@ function ProductsSection() {
           <div style={{ fontWeight: 800, marginBottom: 14, color: 'var(--vd)' }}>
             {editId ? 'Editar producto' : 'Nuevo producto'}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label className="fl">Nombre *</label>
-              <input className="fi" value={form.name} onChange={e => setForm(f => f && ({ ...f, name: e.target.value }))} placeholder="Ej: Papa pastusa" />
+              <input className="fi" value={form.name}
+                onChange={e => setForm(f => f && ({ ...f, name: e.target.value }))}
+                placeholder="Ej: Papa pastusa"
+                autoFocus />
             </div>
             <div>
               <label className="fl">Categoría</label>
-              <input className="fi" value={form.category} onChange={e => setForm(f => f && ({ ...f, category: e.target.value }))} placeholder="Ej: Tubérculos" />
-            </div>
-            <div>
-              <label className="fl">Precio por kg (opcional)</label>
-              <input className="fi" type="number" min="0" value={form.price_per_unit} onChange={e => setForm(f => f && ({ ...f, price_per_unit: e.target.value }))} placeholder="Ej: 3500" />
+              {!form.useNewCategory ? (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select className="fi" style={{ flex: 1 }} value={form.category}
+                    onChange={e => setForm(f => f && ({ ...f, category: e.target.value }))}>
+                    {existingCategories.length === 0 && <option value="">Sin categoría</option>}
+                    {existingCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button type="button" className="bverde" style={{ padding: '0 12px', fontSize: 12, whiteSpace: 'nowrap' }}
+                    onClick={() => setForm(f => f && ({ ...f, useNewCategory: true, newCategory: '' }))}>
+                    + Nueva
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="fi" style={{ flex: 1 }} value={form.newCategory}
+                    onChange={e => setForm(f => f && ({ ...f, newCategory: e.target.value }))}
+                    placeholder="Nombre de la nueva categoría" />
+                  {existingCategories.length > 0 && (
+                    <button type="button" className="bsec" style={{ padding: '0 12px', fontSize: 12, whiteSpace: 'nowrap' }}
+                      onClick={() => setForm(f => f && ({ ...f, useNewCategory: false, newCategory: '' }))}>
+                      Existente
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 9 }}>
-            <button className="bpri" style={{ flex: 0, padding: '10px 22px', margin: 0 }} onClick={handleSubmit} disabled={save.isPending}>
+            <button className="bpri" style={{ flex: 0, padding: '10px 22px', margin: 0 }}
+              onClick={handleSubmit} disabled={save.isPending}>
               <Check size={14} /> {save.isPending ? 'Guardando...' : 'Guardar'}
             </button>
-            <button className="bsec" style={{ flex: 0, padding: '10px 18px' }} onClick={() => { setForm(null); setEditId(null); }}>
+            <button className="bsec" style={{ flex: 0, padding: '10px 18px' }}
+              onClick={() => { setForm(null); setEditId(null); }}>
               <X size={14} /> Cancelar
             </button>
           </div>
         </div>
       )}
 
-      {isLoading ? <div style={{ color: 'var(--gt)', padding: 24 }}>Cargando...</div> : (
-        Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, prods]) => (
-          <div key={cat} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.7px', color: 'var(--gt)', marginBottom: 8 }}>{cat}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {(prods as any[]).map((p: any) => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--b)', border: '1.5px solid var(--brd)', borderRadius: 10, padding: '10px 14px', gap: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</span>
-                    {p.price_per_unit && <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--gt)' }}>${Number(p.price_per_unit).toLocaleString('es-CO')}/kg</span>}
-                  </div>
-                  <button className="dc-btn" title="Editar" onClick={() => openEdit(p)}>
-                    <Pencil size={13} />
-                  </button>
-                  <button className="dc-btn" title="Desactivar" onClick={() => del.mutate(p.id)} style={{ borderColor: 'var(--r)', color: 'var(--r)' }}>
-                    <Trash2 size={13} />
-                  </button>
+      {isLoading ? (
+        <div style={{ color: 'var(--gt)', padding: 24 }}>Cargando...</div>
+      ) : (products as any[]).length === 0 ? (
+        <div style={{ color: 'var(--gt)', fontSize: 14, padding: 16 }}>No hay productos. Crea el primero.</div>
+      ) : (
+        Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, prods]) => {
+          const collapsed = collapsedCats.has(cat);
+          return (
+            <div key={cat} style={{ marginBottom: 12, border: '1.5px solid var(--brd)', borderRadius: 'var(--rad)', overflow: 'hidden' }}>
+              {/* Category header — clickable to collapse */}
+              <button
+                onClick={() => toggleCat(cat)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--gm)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                {collapsed ? <ChevronRight size={15} color="var(--gt)" /> : <ChevronDown size={15} color="var(--gt)" />}
+                <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.6px', color: 'var(--gt)', flex: 1 }}>{cat}</span>
+                <span style={{ fontSize: 11, color: 'var(--gt)', fontWeight: 600 }}>{(prods as any[]).length} productos</span>
+              </button>
+              {!collapsed && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {(prods as any[]).map((p: any) => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--b)', padding: '10px 14px', gap: 10, borderTop: '1px solid var(--brd)' }}>
+                      <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{p.name}</span>
+                      <button className="dc-btn" title="Editar" onClick={() => openEdit(p)}>
+                        <Pencil size={13} />
+                      </button>
+                      <button className="dc-btn" title="Desactivar"
+                        onClick={() => setConfirmDelete({ id: p.id, name: p.name })}
+                        style={{ borderColor: 'var(--r)', color: 'var(--r)' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
@@ -143,10 +241,12 @@ function EmployeesSection() {
   const qc = useQueryClient();
   const [form, setForm] = useState<{ name: string; phone: string } | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const { data: employees = [], isLoading } = useQuery({
     queryKey: ['employees'],
     queryFn: () => api.get<{ data: any[] }>('/employees').then((r) => r.data),
+    staleTime: 0,
   });
 
   const save = useMutation({
@@ -163,10 +263,15 @@ function EmployeesSection() {
     onError: (e: any) => toast(e.message, true),
   });
 
+  // Use DELETE endpoint (soft-deletes via active: false)
   const del = useMutation({
-    mutationFn: (id: string) => api.patch(`/employees/${id}`, { active: false }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['employees'] }); toast('Domiciliario desactivado'); },
-    onError: (e: any) => toast(e.message, true),
+    mutationFn: (id: string) => api.delete(`/employees/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] });
+      setConfirmDelete(null);
+      toast('Domiciliario desactivado');
+    },
+    onError: (e: any) => { setConfirmDelete(null); toast(e.message, true); },
   });
 
   function openCreate() { setEditId(null); setForm({ name: '', phone: '' }); }
@@ -178,8 +283,16 @@ function EmployeesSection() {
 
   return (
     <div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`¿Desactivar a "${confirmDelete.name}"? Ya no aparecerá en la lista de domiciliarios para nuevos pedidos.`}
+          onConfirm={() => del.mutate(confirmDelete.id)}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <span style={{ fontSize: 13, color: 'var(--gt)' }}>{employees.length} domiciliarios activos</span>
+        <span style={{ fontSize: 13, color: 'var(--gt)' }}>{(employees as any[]).length} domiciliarios activos</span>
         <button className="bnew" onClick={openCreate}><Plus size={14} /> Nuevo domiciliario</button>
       </div>
 
@@ -191,27 +304,37 @@ function EmployeesSection() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label className="fl">Nombre *</label>
-              <input className="fi" value={form.name} onChange={e => setForm(f => f && ({ ...f, name: e.target.value }))} placeholder="Nombre completo" />
+              <input className="fi" value={form.name}
+                onChange={e => setForm(f => f && ({ ...f, name: e.target.value }))}
+                placeholder="Nombre completo" autoFocus />
             </div>
             <div>
               <label className="fl">Teléfono</label>
-              <input className="fi" value={form.phone} onChange={e => setForm(f => f && ({ ...f, phone: e.target.value }))} placeholder="3001234567" />
+              <input className="fi" value={form.phone}
+                onChange={e => setForm(f => f && ({ ...f, phone: e.target.value }))}
+                placeholder="3001234567" />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 9 }}>
-            <button className="bpri" style={{ flex: 0, padding: '10px 22px', margin: 0 }} onClick={handleSubmit} disabled={save.isPending}>
+            <button className="bpri" style={{ flex: 0, padding: '10px 22px', margin: 0 }}
+              onClick={handleSubmit} disabled={save.isPending}>
               <Check size={14} /> {save.isPending ? 'Guardando...' : 'Guardar'}
             </button>
-            <button className="bsec" style={{ flex: 0, padding: '10px 18px' }} onClick={() => { setForm(null); setEditId(null); }}>
+            <button className="bsec" style={{ flex: 0, padding: '10px 18px' }}
+              onClick={() => { setForm(null); setEditId(null); }}>
               <X size={14} /> Cancelar
             </button>
           </div>
         </div>
       )}
 
-      {isLoading ? <div style={{ color: 'var(--gt)', padding: 24 }}>Cargando...</div> : (
+      {isLoading ? (
+        <div style={{ color: 'var(--gt)', padding: 24 }}>Cargando...</div>
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {employees.length === 0 && <div style={{ color: 'var(--gt)', fontSize: 14 }}>No hay domiciliarios registrados.</div>}
+          {(employees as any[]).length === 0 && (
+            <div style={{ color: 'var(--gt)', fontSize: 14, padding: 16 }}>No hay domiciliarios registrados.</div>
+          )}
           {(employees as any[]).map((emp: any) => (
             <div key={emp.id} style={{ display: 'flex', alignItems: 'center', background: 'var(--b)', border: '1.5px solid var(--brd)', borderRadius: 10, padding: '12px 14px', gap: 10 }}>
               <div style={{ width: 36, height: 36, background: 'var(--az)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
@@ -221,8 +344,14 @@ function EmployeesSection() {
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{emp.name}</div>
                 {emp.phone && <div style={{ fontSize: 12, color: 'var(--gt)' }}>{emp.phone}</div>}
               </div>
-              <button className="dc-btn" title="Editar" onClick={() => openEdit(emp)}><Pencil size={13} /></button>
-              <button className="dc-btn" title="Desactivar" onClick={() => del.mutate(emp.id)} style={{ borderColor: 'var(--r)', color: 'var(--r)' }}><Trash2 size={13} /></button>
+              <button className="dc-btn" title="Editar" onClick={() => openEdit(emp)}>
+                <Pencil size={13} />
+              </button>
+              <button className="dc-btn" title="Desactivar"
+                onClick={() => setConfirmDelete({ id: emp.id, name: emp.name })}
+                style={{ borderColor: 'var(--r)', color: 'var(--r)' }}>
+                <Trash2 size={13} />
+              </button>
             </div>
           ))}
         </div>
@@ -239,10 +368,12 @@ function UsersSection() {
   const [resetId, setResetId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'encargado' as string });
   const [newPass, setNewPass] = useState('');
+  const [confirmToggle, setConfirmToggle] = useState<{ id: string; name: string; active: boolean } | null>(null);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users-admin'],
     queryFn: () => api.get<{ data: any[] }>('/users').then((r) => r.data),
+    staleTime: 0,
   });
 
   const create = useMutation({
@@ -251,15 +382,20 @@ function UsersSection() {
       qc.invalidateQueries({ queryKey: ['users-admin'] });
       setShowCreate(false);
       setForm({ name: '', email: '', password: '', role: 'encargado' });
-      toast('Usuario creado');
+      toast('Usuario creado exitosamente');
     },
     onError: (e: any) => toast(e.message, true),
   });
 
   const toggle = useMutation({
-    mutationFn: ({ id, active }: { id: string; active: boolean }) => api.patch(`/users/${id}`, { active }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users-admin'] }); toast('Usuario actualizado'); },
-    onError: (e: any) => toast(e.message, true),
+    mutationFn: ({ id, active }: { id: string; active: boolean }) =>
+      api.patch(`/users/${id}`, { active }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users-admin'] });
+      setConfirmToggle(null);
+      toast('Usuario actualizado');
+    },
+    onError: (e: any) => { setConfirmToggle(null); toast(e.message, true); },
   });
 
   const resetPass = useMutation({
@@ -269,22 +405,36 @@ function UsersSection() {
       qc.invalidateQueries({ queryKey: ['users-admin'] });
       setResetId(null);
       setNewPass('');
-      toast('Contraseña actualizada');
+      toast('Contraseña actualizada correctamente');
     },
     onError: (e: any) => toast(e.message, true),
   });
 
   function handleCreate() {
-    if (!form.name.trim() || !form.email.trim() || !form.password) return toast('Todos los campos son obligatorios', true);
+    if (!form.name.trim()) return toast('El nombre es obligatorio', true);
+    if (!form.email.trim()) return toast('El correo es obligatorio', true);
+    if (!form.password) return toast('La contraseña es obligatoria', true);
     if (form.password.length < 6) return toast('La contraseña debe tener al menos 6 caracteres', true);
-    create.mutate(form);
+    create.mutate({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password, role: form.role });
   }
 
   return (
     <div>
+      {confirmToggle && (
+        <ConfirmDialog
+          message={confirmToggle.active
+            ? `¿Desactivar a "${confirmToggle.name}"? No podrá iniciar sesión hasta que se reactive.`
+            : `¿Reactivar a "${confirmToggle.name}"? Podrá volver a iniciar sesión.`}
+          onConfirm={() => toggle.mutate({ id: confirmToggle.id, active: !confirmToggle.active })}
+          onCancel={() => setConfirmToggle(null)}
+        />
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-        <span style={{ fontSize: 13, color: 'var(--gt)' }}>{users.length} usuarios en la organización</span>
-        <button className="bnew" onClick={() => setShowCreate(true)}><Plus size={14} /> Nuevo usuario</button>
+        <span style={{ fontSize: 13, color: 'var(--gt)' }}>{(users as any[]).length} usuarios en la organización</span>
+        <button className="bnew" onClick={() => { setShowCreate(true); setResetId(null); }}>
+          <Plus size={14} /> Nuevo usuario
+        </button>
       </div>
 
       {showCreate && (
@@ -293,19 +443,26 @@ function UsersSection() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label className="fl">Nombre *</label>
-              <input className="fi" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Nombre completo" />
+              <input className="fi" value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Nombre completo" autoFocus />
             </div>
             <div>
-              <label className="fl">Email *</label>
-              <input className="fi" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="correo@empresa.com" />
+              <label className="fl">Correo electrónico *</label>
+              <input className="fi" type="email" value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="correo@empresa.com" />
             </div>
             <div>
               <label className="fl">Contraseña (mín. 6 caracteres) *</label>
-              <input className="fi" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••" />
+              <input className="fi" type="password" value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="••••••" />
             </div>
             <div>
               <label className="fl">Rol *</label>
-              <select className="fi" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+              <select className="fi" value={form.role}
+                onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                 <option value="encargado">Encargado</option>
                 <option value="domiciliario">Domiciliario</option>
                 <option value="admin">Administrador</option>
@@ -313,56 +470,101 @@ function UsersSection() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 9 }}>
-            <button className="bpri" style={{ flex: 0, padding: '10px 22px', margin: 0 }} onClick={handleCreate} disabled={create.isPending}>
+            <button className="bpri" style={{ flex: 0, padding: '10px 22px', margin: 0 }}
+              onClick={handleCreate} disabled={create.isPending}>
               <Check size={14} /> {create.isPending ? 'Creando...' : 'Crear usuario'}
             </button>
-            <button className="bsec" style={{ flex: 0, padding: '10px 18px' }} onClick={() => setShowCreate(false)}>
+            <button className="bsec" style={{ flex: 0, padding: '10px 18px' }}
+              onClick={() => setShowCreate(false)}>
               <X size={14} /> Cancelar
             </button>
           </div>
         </div>
       )}
 
-      {isLoading ? <div style={{ color: 'var(--gt)', padding: 24 }}>Cargando...</div> : (
+      {isLoading ? (
+        <div style={{ color: 'var(--gt)', padding: 24 }}>Cargando...</div>
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {(users as any[]).map((u: any) => (
-            <div key={u.id} style={{ background: 'var(--b)', border: '1.5px solid var(--brd)', borderRadius: 10, padding: '12px 14px', opacity: u.active ? 1 : 0.55 }}>
+            <div key={u.id} style={{ background: 'var(--b)', border: '1.5px solid var(--brd)', borderRadius: 10, padding: '14px', opacity: u.active ? 1 : 0.6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, background: u.role === 'admin' ? 'var(--vd)' : u.role === 'encargado' ? 'var(--v)' : 'var(--az)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+                <div style={{
+                  width: 38, height: 38, flexShrink: 0, borderRadius: '50%', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15,
+                  background: u.role === 'admin' ? 'var(--vd)' : u.role === 'encargado' ? 'var(--v)' : 'var(--az)',
+                }}>
                   {u.name[0].toUpperCase()}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 14 }}>{u.name}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: u.role === 'admin' ? 'var(--vc)' : 'var(--azc)', color: u.role === 'admin' ? 'var(--vd)' : 'var(--az)' }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                      background: u.role === 'admin' ? 'var(--vc)' : 'var(--azc)',
+                      color: u.role === 'admin' ? 'var(--vd)' : 'var(--az)',
+                    }}>
                       {ROLE_LABEL[u.role] ?? u.role}
                     </span>
-                    {!u.active && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: 'var(--rc)', color: 'var(--r)' }}>Inactivo</span>}
+                    {!u.active && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'var(--rc)', color: 'var(--r)' }}>
+                        Inactivo
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--gt)' }}>{u.email}</div>
+                  <div style={{ fontSize: 12, color: 'var(--gt)', marginTop: 2 }}>{u.email}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="dc-btn" title={u.active ? 'Desactivar' : 'Activar'}
-                    onClick={() => toggle.mutate({ id: u.id, active: !u.active })}
-                    style={u.active ? { borderColor: 'var(--r)', color: 'var(--r)' } : { borderColor: 'var(--v)', color: 'var(--v)' }}>
-                    {u.active ? <Trash2 size={13} /> : <Check size={13} />}
-                  </button>
-                  <button className="dc-btn" title="Cambiar contraseña" onClick={() => { setResetId(u.id); setNewPass(''); }}>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button
+                    className="dc-btn"
+                    title="Restablecer contraseña"
+                    onClick={() => { setResetId(resetId === u.id ? null : u.id); setNewPass(''); }}
+                    style={{ borderColor: 'var(--az)', color: 'var(--az)' }}>
                     <RotateCcw size={13} />
+                  </button>
+                  <button
+                    className="dc-btn"
+                    title={u.active ? 'Desactivar usuario' : 'Reactivar usuario'}
+                    onClick={() => setConfirmToggle({ id: u.id, name: u.name, active: u.active })}
+                    style={u.active
+                      ? { borderColor: 'var(--r)', color: 'var(--r)' }
+                      : { borderColor: 'var(--v)', color: 'var(--v)' }}>
+                    {u.active ? <Trash2 size={13} /> : <Check size={13} />}
                   </button>
                 </div>
               </div>
+
+              {/* Inline reset password panel */}
               {resetId === u.id && (
-                <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', paddingTop: 12, borderTop: '1.5px solid var(--brd)' }}>
-                  <input className="fi" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Nueva contraseña (mín. 6 caracteres)" style={{ flex: 1, padding: '9px 12px', fontSize: 13 }} />
-                  <button className="bverde" style={{ padding: '9px 16px', fontSize: 13 }}
-                    onClick={() => { if (newPass.length < 6) return toast('Mínimo 6 caracteres', true); resetPass.mutate({ id: u.id, password: newPass }); }}
-                    disabled={resetPass.isPending}>
-                    {resetPass.isPending ? '...' : 'Actualizar'}
-                  </button>
-                  <button className="bsec" style={{ padding: '9px 14px', fontSize: 13, flex: 0 }} onClick={() => setResetId(null)}>
-                    <X size={13} />
-                  </button>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1.5px solid var(--brd)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--az)', marginBottom: 8 }}>
+                    Restablecer contraseña de {u.name}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="fi"
+                      type="password"
+                      value={newPass}
+                      onChange={e => setNewPass(e.target.value)}
+                      placeholder="Nueva contraseña (mín. 6 caracteres)"
+                      style={{ flex: 1, padding: '9px 12px', fontSize: 13 }}
+                      autoFocus
+                    />
+                    <button
+                      className="bverde"
+                      style={{ padding: '9px 16px', fontSize: 13, whiteSpace: 'nowrap' }}
+                      onClick={() => {
+                        if (newPass.length < 6) return toast('Mínimo 6 caracteres', true);
+                        resetPass.mutate({ id: u.id, password: newPass });
+                      }}
+                      disabled={resetPass.isPending}>
+                      {resetPass.isPending ? '...' : 'Actualizar'}
+                    </button>
+                    <button className="bsec" style={{ padding: '9px 12px', fontSize: 13, flex: 0 }}
+                      onClick={() => { setResetId(null); setNewPass(''); }}>
+                      <X size={13} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -393,8 +595,7 @@ export default function ConfigTab() {
         </div>
       </div>
 
-      {/* Sub-tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '2px solid var(--brd)', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '2px solid var(--brd)' }}>
         {tabs.map(t => (
           <button key={t.key}
             onClick={() => setSection(t.key)}
