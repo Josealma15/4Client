@@ -31,7 +31,7 @@ export default async function fileRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/v1/files/:filename — serve PDF file
-  fastify.get('/:filename', async (req, reply) => {
+  fastify.get('/:filename', { preHandler: [authenticate] }, async (req, reply) => {
     const { filename } = req.params as { filename: string };
     // Only allow safe filenames
     if (!/^Factura_[a-zA-Z0-9_]+\.pdf$/.test(filename)) {

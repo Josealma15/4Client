@@ -144,7 +144,7 @@ export default function MainPage() {
               <MessageSquare size={15} /> Chats WPP
             </button>
           )}
-          {isAdmin && (
+          {canManage && (
             <button className={`tab${tab === 'resumen' ? ' on' : ''}`} onClick={() => setTab('resumen')}>
               <BarChart2 size={15} /> Informe del día
             </button>
@@ -207,7 +207,7 @@ export default function MainPage() {
           </>
         )}
 
-        {tab === 'resumen' && isAdmin && (
+        {tab === 'resumen' && canManage && (
           <ResumenTab
             fecha={fecha}
             setFecha={setFecha}
