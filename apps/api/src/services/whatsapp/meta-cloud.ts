@@ -1,4 +1,4 @@
-const META_API_BASE = 'https://graph.facebook.com/v20.0';
+const META_API_BASE = 'https://graph.facebook.com/v22.0';
 
 export class MetaCloudProvider {
   constructor(

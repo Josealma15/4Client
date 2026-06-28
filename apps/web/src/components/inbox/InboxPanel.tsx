@@ -66,11 +66,16 @@ export default function InboxPanel({ onCreateFromTicket, onOpenOrder }: Props) {
   });
 
   const replyMut = useMutation({
-    mutationFn: (text: string) => api.post(`/inbox/${selectedId}/reply`, { text }),
-    onSuccess: () => {
+    mutationFn: (text: string) => api.post<{ data: any; wpp_status: string; wpp_error?: string }>(`/inbox/${selectedId}/reply`, { text }),
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['inbox-convo', selectedId] });
       qc.invalidateQueries({ queryKey: ['inbox'] });
       setReplyText('');
+      if (res?.wpp_status === 'failed') {
+        toast(`Mensaje guardado pero falló el envío a WhatsApp: ${res.wpp_error ?? 'error Meta API'}`, true);
+      } else if (res?.wpp_status === 'no_credentials') {
+        toast('Mensaje guardado. WPP sin configurar — revisa DevTools → WPP', true);
+      }
     },
     onError: (e: any) => toast(e.message, true),
   });

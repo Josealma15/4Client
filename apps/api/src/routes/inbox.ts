@@ -89,14 +89,22 @@ export default async function inboxRoutes(fastify: FastifyInstance) {
 
     // Enviar via Meta Cloud API
     const provider = MetaCloudProvider.fromOrg(ticket.org);
+    let wpp_status: 'sent' | 'no_credentials' | 'failed' = 'no_credentials';
+    let wpp_error: string | undefined;
+
     if (provider) {
-      provider.sendText(ticket.phone, body.data.text).catch(err =>
-        fastify.log.error({ err, ticketId }, 'WPP: error enviando respuesta via Meta API'),
-      );
+      try {
+        await provider.sendText(ticket.phone, body.data.text);
+        wpp_status = 'sent';
+      } catch (err: any) {
+        wpp_status = 'failed';
+        wpp_error = err?.message ?? 'Error desconocido Meta API';
+        fastify.log.error({ err, ticketId }, 'WPP: error enviando respuesta via Meta API');
+      }
     } else {
       fastify.log.warn({ ticketId }, 'WPP: org sin credenciales Meta, mensaje solo guardado en BD');
     }
 
-    return reply.status(201).send({ data: message });
+    return reply.status(201).send({ data: message, wpp_status, wpp_error });
   });
 }
