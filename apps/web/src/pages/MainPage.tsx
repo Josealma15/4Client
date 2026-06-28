@@ -120,7 +120,7 @@ export default function MainPage() {
       <header className="ah">
         <div className="ht">
           <div className="hlogo">
-            <span className="hlogo-t">4Client</span>
+            <img src="/logo.png" alt="4Client" style={{ height: 36, objectFit: 'contain' }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <div className="huser">

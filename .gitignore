@@ -5,3 +5,6 @@ dist
 .env.local
 *.local
 
+# Design source files at root
+4ClientLogo.png
+
