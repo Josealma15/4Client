@@ -29,7 +29,14 @@ if (config.SENTRY_DSN) {
   });
 }
 
-const fastify = Fastify({ logger: config.NODE_ENV === 'development' });
+const fastify = Fastify({
+  logger: {
+    level: config.NODE_ENV === 'production' ? 'warn' : 'info',
+    transport: config.NODE_ENV === 'development'
+      ? { target: 'pino-pretty' }
+      : undefined,
+  },
+});
 
 fastify.setErrorHandler((error, _req, reply) => {
   if (config.SENTRY_DSN) Sentry.captureException(error);
