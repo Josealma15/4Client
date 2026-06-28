@@ -122,14 +122,14 @@ export default async function devRoutes(fastify: FastifyInstance) {
 
       const admin = await p.user.upsert({
         where: { org_id_email: { org_id: org.id, email: 'admin@fruver.com' } },
-        update: {},
+        update: { password_hash: adminHash, role: 'admin', active: true },
         create: { org_id: org.id, email: 'admin@fruver.com', password_hash: adminHash, name: 'Juan Ignasio', role: 'admin' },
       });
       log(`Admin: ${admin.email}`);
 
       await p.user.upsert({
         where: { org_id_email: { org_id: org.id, email: 'dev@fruver.com' } },
-        update: {},
+        update: { password_hash: devHash, role: 'dev', active: true },
         create: { org_id: org.id, email: 'dev@fruver.com', password_hash: devHash, name: 'Jose Alvarez', role: 'dev' },
       });
       log('Dev: dev@fruver.com');

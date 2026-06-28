@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
+const SEED_ADMIN_PASS = process.env.SEED_ADMIN_PASS ?? 'admin123';
+const SEED_DEV_PASS   = process.env.SEED_DEV_PASS   ?? 'josejose';
 
 const PRODUCTOS = [
   // Verduras
@@ -91,32 +93,20 @@ async function main() {
   console.log(`✅ Org: ${org.name} (${org.id})`);
 
   // Usuario admin
-  const adminHash = await bcrypt.hash('admin123', 12);
+  const adminHash = await bcrypt.hash(SEED_ADMIN_PASS, 12);
   const admin = await prisma.user.upsert({
     where: { org_id_email: { org_id: org.id, email: 'admin@fruver.com' } },
-    update: {},
-    create: {
-      org_id: org.id,
-      email: 'admin@fruver.com',
-      password_hash: adminHash,
-      name: 'Juan Ignasio',
-      role: 'admin',
-    },
+    update: { password_hash: adminHash, role: 'admin', active: true },
+    create: { org_id: org.id, email: 'admin@fruver.com', password_hash: adminHash, name: 'Juan Ignasio', role: 'admin' },
   });
   console.log(`✅ Admin: ${admin.email}`);
 
   // Usuario dev (super-admin del sistema)
-  const devHash = await bcrypt.hash('josejose', 12);
+  const devHash = await bcrypt.hash(SEED_DEV_PASS, 12);
   await prisma.user.upsert({
     where: { org_id_email: { org_id: org.id, email: 'dev@fruver.com' } },
-    update: {},
-    create: {
-      org_id: org.id,
-      email: 'dev@fruver.com',
-      password_hash: devHash,
-      name: 'Jose Alvarez',
-      role: 'dev',
-    },
+    update: { password_hash: devHash, role: 'dev', active: true },
+    create: { org_id: org.id, email: 'dev@fruver.com', password_hash: devHash, name: 'Jose Alvarez', role: 'dev' },
   });
   console.log('✅ Dev: dev@fruver.com');
 
